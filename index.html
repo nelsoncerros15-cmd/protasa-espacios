@@ -401,6 +401,15 @@ const N=v=>+v||0;
 const FN=v=>N(v).toLocaleString('es',{maximumFractionDigits:0});
 const FD=v=>N(v).toLocaleString('es',{minimumFractionDigits:2,maximumFractionDigits:2});
 function sum(f){return D.reduce((a,r)=>a+N(r[f]),0);}
+function sumPiloneros(){
+  // Sumar piloneros UNA sola vez por jefe (no por bodega)
+  const vistos={};
+  return D.reduce((a,r)=>{
+    if(!r.jefe||vistos[r.jefe])return a;
+    vistos[r.jefe]=true;
+    return a+N(r.piloneros);
+  },0);
+}
 
 /* ══ NUMPAD ══ */
 (function(){
@@ -523,7 +532,7 @@ function renderStats(){
   document.getElementById('sv-q').textContent =FD(sum('qqs'));
   document.getElementById('sv-t').textContent =FN(sum('totTab'));
   document.getElementById('sv-e').textContent =FN(sum('totEsp'));
-  document.getElementById('sv-pi').textContent=FN(sum('piloneros'));
+  document.getElementById('sv-pi').textContent=FN(sumPiloneros());
   document.getElementById('ev-u').textContent =FN(sum('uniones'));
   document.getElementById('ev-d').textContent =FN(sum('despalillo'));
   document.getElementById('ev-e').textContent =FN(sum('empaque'));
@@ -589,7 +598,14 @@ function renderTabla(){
   const areas=[...new Set(D.map(r=>r.area))];
   areas.forEach(area=>{
     const rows=D.filter(r=>r.area===area);
+    const jefeMostrado={};  // controla qué jefes ya mostraron su piloneros
     rows.forEach(r=>{
+      // Piloneros: mostrar solo en la PRIMERA bodega del jefe
+      const mostrarPil = !jefeMostrado[r.jefe];
+      if(mostrarPil) jefeMostrado[r.jefe]=true;
+      const celPil = mostrarPil && N(r.piloneros)>0
+        ? `<span class="pl plg">${N(r.piloneros)}</span>`
+        : '—';
       const tr=document.createElement('tr');
       tr.innerHTML=`
         <td><span class="ab">${r.area}</span></td>
@@ -603,12 +619,14 @@ function renderTabla(){
         <td><span class="pl plo">${N(r.libres)}</span></td>
         <td style="font-weight:600;color:var(--gold2)">${N(r.totTab)}</td>
         <td style="font-weight:600">${N(r.totEsp)}</td>
-        <td><span class="pl plg">${N(r.piloneros)||'—'}</span></td>`;
+        <td>${celPil}</td>`;
       tbody.appendChild(tr);
     });
+    const jefesVistos={};
     const tot=rows.reduce((a,r)=>({p:a.p+N(r.pilones),q:a.q+N(r.qqs),u:a.u+N(r.uniones),
       d:a.d+N(r.despalillo),e:a.e+N(r.empaque),l:a.l+N(r.libres),
-      t:a.t+N(r.totTab),esp:a.esp+N(r.totEsp),pi:a.pi+N(r.piloneros)}),
+      t:a.t+N(r.totTab),esp:a.esp+N(r.totEsp),
+      pi:a.pi+(!jefesVistos[r.jefe]&&(jefesVistos[r.jefe]=true)?N(r.piloneros):0)}),
       {p:0,q:0,u:0,d:0,e:0,l:0,t:0,esp:0,pi:0});
     const tr=document.createElement('tr');tr.className='rtot';
     tr.innerHTML=`<td colspan="3">TOTAL ${area}</td><td>${tot.p}</td><td>${FD(tot.q)}</td>
@@ -618,7 +636,7 @@ function renderTabla(){
   });
   // Gran total
   const g={p:sum('pilones'),q:sum('qqs'),u:sum('uniones'),d:sum('despalillo'),
-    e:sum('empaque'),l:sum('libres'),t:sum('totTab'),esp:sum('totEsp'),pi:sum('piloneros')};
+    e:sum('empaque'),l:sum('libres'),t:sum('totTab'),esp:sum('totEsp'),pi:sumPiloneros()};
   const tr=document.createElement('tr');tr.className='rgran';
   tr.innerHTML=`<td colspan="3">GRAN TOTAL FERMENTACIÓN</td><td>${g.p}</td><td>${FD(g.q)}</td>
     <td>${g.u}</td><td>${g.d}</td><td>${g.e}</td><td>${g.l}</td>
